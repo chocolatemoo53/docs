@@ -1,0 +1,124 @@
+---
+title: "Azure"
+description: "Set up a GPU-accelerated Windows cloud workstation on Microsoft Azure using CloudStreaming."
+hidden: true
+---
+
+<Warning>
+  This guide is a work-in-progress and may contain outdated information. Updates are in progress.
+</Warning>
+
+To get started, you need a Microsoft account — a personal one works fine. You may already have one.
+
+<Note>
+  Recurring **Azure for Students** credits do not work with GPU VMs. However, you can convert an **Azure for Students Starter** subscription to a standard subscription to gain access.
+</Note>
+
+<Steps>
+  <Step title="Evaluate GPU options">
+    Azure offers several GPU-accelerated VM types. Choose based on your intended workload:
+
+    | VM type | GPU | Notes |
+    | --- | --- | --- |
+    | NVv4 | AMD Radeon M125 | Cheapest option. Good for 3D rendering and modeling, not recommended for gaming |
+    | NC6 promo | NVIDIA M60 | Not recommended — the M60 is being phased out and performance is slow for the price |
+    | NV6ads A10 | Fraction of NVIDIA A10 | May be underpowered depending on your use case |
+    | NC8as T4 | Tesla T4 | **Recommended** — best value-to-performance ratio |
+
+    The Tesla T4 (NC8as T4) is the recommended choice for most users.
+  </Step>
+  <Step title="Request a limit increase">
+    Depending on global demand for the VM type you want, you may be able to launch without requesting a limit increase. If your account is in good standing and not too new (or you've converted an Azure for Students Starter subscription), you can request an increase from the Azure portal.
+
+    Visit the [Azure portal](https://portal.azure.com/) and search for **quotas** at the top. Use the information from step 1 to determine which VM family quota to request.
+  </Step>
+  <Step title="Create a Windows Server instance">
+    After receiving confirmation of your limit increase, log into the [Azure portal](https://portal.azure.com/). From the dashboard, select **Virtual Machines** on the left-hand side, then click **Create** at the top left.
+
+    **Basic configuration**
+
+    1. Select your subscription
+    2. Give your VM a name — Azure will automatically create a resource group for it unless you already have one
+    3. Choose a region based on proximity or available VM types
+
+    **Select an image**
+
+    For the **Image** dropdown, click **See all images** and select **\[smalldisk\] Windows Server 2025 x64 Gen 2**. The small disk image keeps your OS drive small and cheap — with the rest of the configuration in this guide, your entire VM storage cost will be around **\$1/month** (excluding storage account costs).
+
+    **Set credentials**
+
+    Azure lets you choose your own username and password. Pick any username you like — your first name works fine. Do not use "Administrator" as it is reserved and Azure will not accept it. Use a generated password for security (for example, from [1Password's generator](https://1password.com/password-generator)).
+
+    If you have an existing Windows Server license, check the **"Would you like to use an existing Windows Server license?"** box under licensing.
+
+    **Configure the OS disk**
+
+    Under the **OS Disk Type** dropdown, select **Standard HDD**. This drive will not be used to store games or applications, so speed is not a concern here.
+
+    **Optional: disable boot diagnostics**
+
+    Under the **Management** tab → **Monitoring**, you can disable **boot diagnostics**. This is optional but recommended to reduce costs.
+
+    **Install the GPU driver extension**
+
+    Under the **Advanced** tab, click **Select an extension to install** and choose the GPU driver extension that matches your VM type. For example, select **AMD GPU Driver** for the NVv4 VM type.
+
+    **Deploy**
+
+    Click **Review \+ create** and wait for validation to pass, then click **Create**.
+
+    **Configure the network security group (NSG)**
+
+    After deployment, search for **Network security groups** at the top of the portal and select the group that was just created for your VM.
+
+    How you configure the NSG depends on how you plan to connect to your streaming software:
+
+    <Tabs>
+      <Tab title="Tailscale (recommended)">
+        [Install Tailscale](https://tailscale.com/download) on your personal device. With both your server and personal device connected to the same Tailscale network, you can reach your VM without opening any ports in the NSG. This is also the more secure option.
+      </Tab>
+      <Tab title="Port forwarding">
+        If you cannot use Tailscale, add inbound security rules to your NSG for the following ports:
+
+        **Sunshine — TCP:** `35043` `47984` `47989` `47995` `47996` `48010`
+
+        **Sunshine — UDP:** `47998` `47999` `48000` `48010`
+
+        Parsec does not require any ports to be forwarded.
+      </Tab>
+    </Tabs>
+
+    **Connect via RDP**
+
+    Use an RDP client to connect to your VM for the initial setup:
+
+    - **Windows:** Search for "RDP" in the start menu
+    - **macOS:** Use the Remote Desktop app from Microsoft
+    - **Linux:** Install Remmina:
+      ```bash
+      sudo apt install remmina
+      ```
+
+    You're now connected to your GPU-accelerated Azure VM.
+  </Step>
+  <Step title="Run the script">
+    On your server, open PowerShell as Administrator and run:
+
+    ```powershell
+    iex "(New-Object Net.WebClient).DownloadFile('https://is.gd/UTAo8K', '$env:UserProfile\cloudstreaming.zip'); Expand-Archive '$env:UserProfile\cloudstreaming.zip' -Force; & '$env:UserProfile\cloudstreaming\cloudstreaming-main\starthere.ps1'"
+    ```
+
+    Follow the prompts in the script to complete the setup.
+  </Step>
+  <Step title="Create a storage account">
+    Storage accounts on Azure are significantly cheaper than managed disks and are the recommended way to store your games and files.
+
+    1. Search for **Storage accounts** in the portal and create a new one
+    2. Select **LRS** (Locally Redundant Storage) as the redundancy option — it is the lowest cost
+    3. Under the **Advanced** tab, enable **Large file shares** under the Azure Files section — this increases performance for file shares
+    4. Once created, go to **Data storage → File shares** and create a new file share
+    5. Click **Connect** on the file share and copy the generated command into PowerShell on your server to mount the share
+
+    Create any directories you need within the mounted share to organize your files.
+  </Step>
+</Steps>

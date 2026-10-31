@@ -1,0 +1,593 @@
+---
+title: "AWS"
+description: "Set up a GPU-accelerated Windows cloud workstation on Amazon Web Services using CloudStreaming."
+---
+
+This guide explains how to create a cloud workstation on AWS using a graphics-accelerated EC2 instance. You can install any game or application you want, run advanced features like DLSS and Ray Tracing, and keep costs as low as possible.
+
+## Pricing overview
+
+<Note>
+  **Instance costs:** Running a G4DN.xlarge for 10 hours in `us-west-2` typically costs around **\$2.50**.
+
+  \*\*Storage will cost 0.015 a gig per month.\*\*
+
+  For example, 128 GB = 1.92/month.
+
+  **Bandwidth:** AWS gives you **100 GB free** per month. At 25 Mbps, that covers roughly **20 hours** of game streaming before any additional charges apply.
+
+  These figures assume you follow all steps in this guide for maximum cost efficiency and are not using other AWS services that consume extra bandwidth. Instance pricing is best-case — not every instance will be this cheap per hour.
+</Note>
+
+### Getting started
+
+The process is not difficult. However, some parts may feel technical. Feel free to create a GitHub issue if you need help. AWS is the official platform used for testing. 
+
+<Steps>
+  <Step title="Request a limit increase">
+    AWS requires you to request a quota increase before you can launch GPU instances. Open the AWS console and search for **Service Quotas**.
+
+    Navigate to **AWS Services → Amazon Elastic Compute Cloud (Amazon EC2)**, then search for `G`. Select **All G and VT Spot Instance Requests** and click **Request quota increase**. Request at least 8** vCPUs** (this is the minimum; you can request more).
+
+    AWS may close your support case and if that happens, reopen it and explain your reasoning again. If your account is too new, they may decline. Repeat the request every month if you need. When writing your request message:
+
+    - State your own reason in your own words
+    - Mention the specific applications or workflow you want to support
+    - Be polite and thankful
+    - Do not copy-paste the example below verbatim
+
+    > "Hello, I was interested in starting a small Workstation instance on EC2 so I can improve my workflow and access my work from wherever I am. I am simply requesting a limit increase of \<4 or 8 vCPUs\> in the us-blank-2 region."
+
+    Check your email frequently for a response.
+  </Step>
+  <Step title="Create a Windows Server instance">
+    AWS supports many GPU instance types. The most widely available is the **G4DN**, which uses a Tesla T4 (roughly comparable to an RTX 2080) and runs the vast majority of games successfully. Newer generations offer more performance for similar or lower cost:
+
+    - **G5** — closer to 30-series NVIDIA consumer GPUs
+    - **G6** — closer to 40-series NVIDIA consumer GPUs, with options for partial or full NVIDIA L40
+
+    The region you choose does not have to be the closest one geographically. For example, Oregon (`us-west-2`) may have more G5 and G6 availability than Northern California (`us-west-1`). Evaluate your options using the [AWS spot instance pricing page](https://aws.amazon.com/ec2/spot/pricing/).
+
+    **Spot instances** are cheaper than on-demand and are rarely interrupted. The availability of spot capacity depends on the region — less popular regions may actually have more.
+
+    Once you've decided, log into your AWS dashboard and navigate to **EC2**, then click the orange **Launch instances** button.
+
+    **Configure name and tags**
+
+    Under **Name and tags**, click **Add additional tags**. Enter your instance name and select **Volumes** under Resource types — this ensures the storage volume gets the same name tag, which matters for the automation scripts later.
+
+    **Choose an instance type**
+
+    The G4DN.xlarge is recommended for its wide availability. Select it from the instance type list.
+
+    **Create a key pair**
+
+    Under **Key pair (login)**, create a new key pair and download the file. You'll need this to retrieve the Administrator password for your new server.
+
+    **Configure the security group (firewall)**
+
+    Select **Edit** on the Network settings panel. Add a rule for **RDP** with source set to **My IP** — this is required for the initial setup. Opening streaming ports is optional if you plan to use Tailscale (recommended), since Tailscale creates a secure tunnel and you won't need to expose ports publicly.
+
+    <AccordionGroup>
+      <Accordion title="Sunshine ports">
+        If you cannot use Tailscale and need to open Sunshine ports directly, add the following inbound rules to your security group:
+
+        **TCP:** `35043` `47984` `47989` `47995` `47996` `48010`
+
+        **UDP:** `47998` `47999` `48000` `48010`
+      </Accordion>
+
+      <Accordion title="Amazon DCV port">
+        If you plan to use Amazon DCV without Tailscale, consult the [streaming technology](/getting-started/streaming-technology) page for the port to open. Using Tailscale is more secure and avoids exposing this port publicly.
+      </Accordion>
+    </AccordionGroup>
+
+    **Configure storage**
+
+    256 GB is the recommended storage size. For larger game libraries, 512 GB is still affordable. When configuring the volume:
+
+    - Change the volume type to **GP3** for better performance and value
+    - Click the blue **Advanced** link and **uncheck** "Delete on termination" — this is critical; if you skip this step, your data will be deleted when the instance stops
+
+    **Enable spot instances**
+
+    Under **Advanced details**, scroll down and enable the **Request Spot Instances** option. If you don't use spot instances, you may get an error since your quota increase was only approved for spot instances.
+
+    **Launch**
+
+    Review the summary on the right side, then click **Launch instance**. It can take up to 4 minutes for the instance to fully provision.
+
+    To retrieve your Administrator password, select your instance with the checkbox, click **Connect**, and open the **RDP client** tab. Upload your key file to decrypt the password, then copy the instance's IP address.
+
+    Connect to the instance using an RDP client. On Windows, search for "RDP" in the start menu. On macOS, use the [Windows App from the App Store](https://apps.apple.com/us/app/microsoft-remote-desktop/id1295203466?mt=12). Finally, if you use Linux, install Remmina (this is just a general recommendation):
+
+    ```bash
+    sudo apt install remmina
+    ```
+  </Step>
+  <Step title="Run the script">
+    Before running the script, review the [streaming technology](/getting-started/streaming-technology) documentation to decide which streaming option you want to use — Parsec, Sunshine, or Amazon DCV.
+
+    **Generate IAM credentials**
+
+    The script needs AWS root keys to download GPU drivers. Visit the [IAM security credentials page](https://console.aws.amazon.com/iam/home?/security_credentials#/security_credentials), scroll down to **Access keys**, and click **Create access key**. Save these keys somewhere safe — you'll need them again. Do not publish them publicly or use them on untrusted devices.
+
+    **Run the script**
+
+    On your server, open PowerShell as Administrator and run:
+
+    ```powershell
+    iex "(New-Object Net.WebClient).DownloadFile('https://is.gd/UTAo8K', '$env:UserProfile\cloudstreaming.zip'); Expand-Archive '$env:UserProfile\cloudstreaming.zip' -Force; & '$env:UserProfile\cloudstreaming\cloudstreaming-main\starthere.ps1'"
+    ```
+
+    **Step 2 of the script** will ask whether you want to install Tailscale. The recommended answer is **yes**. Tailscale will open automatically, and you can log in using any supported method or scan a QR code. Once installed, [create a free Tailscale account](https://login.tailscale.com/start) on your personal computer and install the Tailscale app there as well.
+
+    <Accordion title="Alternative: Dynamic DNS">
+      If you cannot use Tailscale at all and cannot use subnet routes, you can use Dynamic DNS to get a stable domain name that points to your instance. [Duck DNS](https://www.duckdns.org/) is a free option (and is itself hosted on AWS).
+
+      This is needed because without a stable address, Moonlight will become unpaired from your server every time the instance gets a new IP address, requiring you to manually re-pair.
+
+      To set up Duck DNS:
+
+      1. Create an account using one of the sign-in options at the top of the Duck DNS site
+      2. Go to **Domains** and create a new domain (e.g., `myworkstation.duckdns.org`)
+      3. Enter the IP address you used for RDP into the IP address field
+
+      **Downsides:** This approach is less secure than Tailscale and requires manually updating the IP address each time the instance starts. It is still less work than re-pairing every Moonlight device each time.
+    </Accordion>
+
+    **Connect to your streaming technology**
+
+    When the script reaches step 3 and installs your video drivers, it will ask you to restart.  **Reject** the request for now. Once you do, complete the connection steps for your chosen streaming technology:
+
+    <Tabs>
+      <Tab title="Parsec">
+        Make sure you are logged in to Parsec on both your personal computer and the server. They sync automatically — your server will appear in Parsec whenever it is available. That's all you need to do.
+      </Tab>
+      <Tab title="Sunshine">
+        1. On the server, open the Sunshine dashboard at `https://localhost:47990` and create a login
+        2. [Download Moonlight](https://moonlight-stream.org) on your personal device
+        3. [Download Tailscale](https://tailscale.com/download) on your personal device and log in (click the Tailscale icon in your menu bar or taskbar)
+        4. In Moonlight, click **Add computer** (top right) and enter your server's Tailscale IP address, which you can find on the [Tailscale dashboard](https://login.tailscale.com/)
+        5. On the Sunshine dashboard, go to the **PIN** tab and enter the PIN shown in Moonlight to pair the devices
+        6. Restart the server manually. DO NOT delay in reconnecting.
+        7. In Moonlight, select your machine and choose **Desktop**
+
+        You are now connected.
+      </Tab>
+      <Tab title="Amazon DCV">
+        1. [Download the Amazon DCV client](https://download.nice-dcv.com/latest.html) and install it on your personal computer
+        2. [Download Tailscale](https://tailscale.com/download) on your personal device and log in
+        3. Open the Amazon DCV client and enter your server's Tailscale IP address (found on the [Tailscale dashboard](https://login.tailscale.com/))
+        4. Log in using your Administrator credentials (the same ones you used for RDP)
+
+        Save your Administrator credentials — you will need them every time you connect via Amazon DCV.
+      </Tab>
+    </Tabs>
+
+    <Accordion title="Seeing a black screen?">
+      If you see only a black screen after connecting, or you see your desktop but cannot interact with it, try the following:
+
+      1. In Moonlight's settings, make sure **Capture system keys** is enabled
+      2. Press `Windows + P` (or `Command + P` on Mac)
+      3. Use the **Up arrow** once or the **Down arrow** twice, then press **Enter**
+
+      Your display should become usable at some point during this process. If not, something went wrong during setup that you may have missed. You can open an issue on the [CloudStreaming GitHub repository](https://github.com/chocolatemoo53/cloudstreaming).
+    </Accordion>
+
+    **Manage bandwidth**
+
+    Set your maximum bitrate to **10–15 Mbps** in Parsec or Moonlight (the cap is 25 Mbps) to avoid unexpected bandwidth costs. If your personal computer supports it, enable the **H.265 codec** in Moonlight — it uses less bandwidth than H.264. Some computers cannot decode H.265 in real time, in which case H.264 is required.
+
+    **Verify your storage**
+
+    After stopping your instance for the first time, check the [AWS Volumes dashboard](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-east-1#Volumes:) after a couple of minutes to confirm your storage volume is still there. If it is gone, your volume was set to delete on termination, you **must** recreate the instance and repeat all steps with that option unchecked.
+
+    <Warning>
+      Do not install games or applications yet. Complete steps 4 and 4.5 first — the reason is explained there.
+    </Warning>
+  </Step>
+  <Step title="Optimize storage costs">
+    <Info>
+      If you plan to use your server only for a short period (a few days) and then delete it, you can skip this step. Just make sure to delete the instance storage when you are fully done. For long-term use, this step saves a significant amount of money.
+    </Info>
+
+    When your instance is not running, you are still paying for the GP3 volume attached to it. This step automates a conversion: when the instance is terminated, a Lambda function takes a snapshot of your GP3 volume, converts it to a **cold HDD (sc1)** volume (much cheaper), then deletes the snapshot. When you start the instance again (via the script in step 4.5), it reverses the process.
+
+    **Create the Lambda function (durable)**
+
+    Recently, AWS introduced a feature where you can make a "durable" function which "checkpoint progress and resume after interruptions"  making it much more suitable for this exact kind of function, but this does change the fundamentals of the script. Below is an updated script to use for this special mode, and it's highly recommended you turn it on.
+
+    ```python
+    import boto3
+    import botocore
+    
+    instance_name = 'Workstation'
+    instance_region = 'us-west-2'
+    
+    ec2 = boto3.client('ec2', region_name=instance_region)
+    
+    def handler(event, context):
+    
+        volume = context.step("find-volume", find_volume)
+    
+        if not volume:
+            print("No available volumes found to delete.")
+            return
+    
+        context.step("wait-for-existing-snapshot", wait_for_existing_snapshot)
+    
+        snapshot_id = context.step("create-snapshot", create_snapshot, volume)
+    
+        context.wait(
+            "wait-snapshot-complete",
+            is_snapshot_complete,
+            snapshot_id
+        )
+    
+        new_volume_id = context.step("create-sc1-volume", create_sc1_volume, volume, snapshot_id)
+    
+        context.step("cleanup", cleanup_resources, volume, snapshot_id)
+    
+        return new_volume_id
+    
+    
+    def find_volume():
+        volumes = ec2.describe_volumes(
+            Filters=[
+                {'Name': 'status', 'Values': ['available']},
+                {'Name': 'tag:Name', 'Values': [instance_name]}
+            ]
+        )['Volumes']
+    
+        return volumes[0] if volumes else None
+    
+    
+    def wait_for_existing_snapshot():
+        snapshots = ec2.describe_snapshots(
+            Filters=[
+                {'Name': 'description', 'Values': [f'Snapshot for {instance_name}']},
+                {'Name': 'status', 'Values': ['pending']}
+            ]
+        )['Snapshots']
+    
+        if snapshots:
+            raise Exception("Snapshot already in progress")  
+            # Durable runtime will retry this step later
+    
+    
+    def create_snapshot(volume):
+        response = ec2.create_snapshot(
+            VolumeId=volume['VolumeId'],
+            Description=f"Snapshot for {instance_name}"
+        )
+        return response['SnapshotId']
+    
+    
+    def is_snapshot_complete(snapshot_id):
+        snapshots = ec2.describe_snapshots(SnapshotIds=[snapshot_id])['Snapshots']
+        return snapshots[0]['State'] == 'completed'
+    
+    
+    def create_sc1_volume(volume, snapshot_id):
+        response = ec2.create_volume(
+            SnapshotId=snapshot_id,
+            VolumeType='sc1',
+            AvailabilityZone=volume['AvailabilityZone'],
+            TagSpecifications=[
+                {
+                    'ResourceType': 'volume',
+                    'Tags': [{'Key': 'Name', 'Value': instance_name}]
+                }
+            ]
+        )
+        return response['VolumeId']
+    
+    
+    def cleanup_resources(volume, snapshot_id):
+        ec2.delete_snapshot(SnapshotId=snapshot_id)
+        ec2.delete_volume(VolumeId=volume['VolumeId'])
+    ```
+
+    This allows you to not have to worry about your data not being properly saved, unlike the script below, but just in case, the script below is still available for anyone who needs it. 
+
+    <Accordion title="Old script">
+      **Create the Lambda function**
+
+      Search for **Lambda** in the AWS console and click **Create function**. Select **Python** as the runtime. Paste the following code into the `lambda_function.py` editor:
+
+      ```python
+      import boto3
+      import botocore
+      
+      instance_name = 'yourinstancename'
+      instance_region = 'your-instance-region'
+      
+      def lambda_handler(event, context):
+          ec2 = boto3.client('ec2')
+          
+          # Connect to region
+          ec2 = boto3.client('ec2',region_name=instance_region)
+          res_client = boto3.resource('ec2', region_name=instance_region)
+          
+          # Get all available volumes    
+          volumetodelete = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['available']},
+                                              {'Name': 'tag:Name', 'Values': [instance_name]}])['Volumes']
+      
+              # Create a snapshot of the GP3 volume
+              snapshot_response = ec2.create_snapshot(VolumeId=volumetodelete, Description=f"Snapshot for {instance_name}")
+              snapshot_id = snapshot_response['SnapshotId']
+              
+              # Wait for the snapshot to be completed
+              ec2.get_waiter('snapshot_completed').wait(SnapshotIds=[snapshot_id])
+              
+              print(f'Snapshot {snapshot_id} created.')
+              
+              # Create a COLD HDD (sc1) volume from the snapshot
+              cold_hdd_response = ec2.create_volume(
+                  SnapshotId=snapshot_id,
+                  VolumeType='sc1',
+                  AvailabilityZone=volume['AvailabilityZone'],
+                  TagSpecifications=[
+                      {
+                          'ResourceType': 'volume',
+                          'Tags': [
+                              {
+                                  'Key': 'Name',
+                                  'Value': instance_name
+                              },
+                          ]
+                      },
+                  ]
+              )
+              cold_hdd_volume_id = cold_hdd_response['VolumeId']
+              
+              print(f'New sc1 volume {cold_hdd_volume_id} created.')
+              
+              # Tag the COLD HDD volume with the instance's name
+              ec2.create_tags(Resources=[cold_hdd_volume_id], Tags=[{'Key': 'Name', 'Value': instance_name}])
+              
+              # Delete the snapshot and GP3 volume
+              ec2.delete_snapshot(SnapshotId=snapshot_id)
+              print(f'Snapshot {snapshot_id} deleted.')
+              ec2.delete_volume(VolumeId=gp3_volume['VolumeId'])
+              print(f'GP3 volume {gp3_volume["VolumeId"]} deleted.')
+      ```
+    </Accordion>
+
+    Replace `Workstation`and `us-west-2` with your actual values before saving.
+
+    **Set the timeout**
+
+    Go to the **General configuration** tab and click **Edit**. Set the timeout to the maximum of **15 minutes**. The first snapshot (and any snapshot after large data changes) can take a long time, and a shorter timeout will cause the function to fail.
+
+    **Grant permissions**
+
+    Still in the General configuration tab, click the IAM role link at the bottom (labeled something like **View the xxxxxxx-role-xxxx role on the IAM console**). On the IAM page, click **Add permissions** and attach the **AmazonEC2FullAccess** policy. This allows the function to manage your EC2 volumes.
+
+    **Set up the EventBridge trigger**
+
+    Search for **EventBridge** in the AWS console and select your region. Create a new rule with any name and description. For the event pattern, configure:
+
+    - **Service:** EC2
+    - **Event type:** EC2 State-change Notification
+    - **Specific state(s):** terminated
+    - **Target:** Lambda → select the Lambda function you just created
+
+    **Run the initial conversion**
+
+    Your volume is currently sitting idle as a GP3 volume. You need to convert it manually the first time. Go to the **Test** tab in the Lambda console and click **Invoke**. Watch the logs to confirm the function completes successfully.
+
+    The first run may fail due to timeout if the snapshot takes longer than 15 minutes. This is normal for a large initial snapshot. Subsequent snapshots complete much faster as long as you haven't made major changes since the last run.
+
+    <Accordion title="What if I make big changes?">
+      If you install numerous games or files between sessions, the Lambda function may time out before the snapshot finishes (even with the new one). If this happens, monitor your AWS dashboard after stopping the instance.
+
+      GP3 volumes (not converted) should NOT be there, you can convert it manually:
+
+      1. Go to **Snapshots** and select the snapshot that was created
+      2. Click **Create volume from snapshot** and choose **SC1** as the volume type
+      3. Delete the original GP3 volume and the snapshot
+      4. Name the new SC1 volume the same as your instance name
+
+      Once your instance is fully set up with all your applications and games installed, the Lambda function will rarely time out and will handle everything automatically.
+    </Accordion>
+  </Step>
+  <Step title="Automate instance startup">
+    This step sets up a script on your personal computer that starts your instance automatically — converting the SC1 volume back to GP3, creating an AMI, launching a spot instance, and cleaning up — all without logging into the AWS console each time.
+
+    **Install and configure the AWS CLI**
+
+    [Install the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) on your personal computer. Then open your terminal and run:
+
+    ```bash
+    aws configure
+    ```
+
+    Enter the credentials you created earlier. Set the output format to `json` and the region to your workstation's region.
+
+    **Download and configure the startup script**
+
+    Choose the script for your operating system, fill in the values at the top, and save the file.
+
+    <Tabs>
+      <Tab title="Windows (.ps1)">
+        ```powershell
+        # Define parameters
+        $InstanceName = 'yourinstancename'
+        $TargetInstanceType = 'g4dn.xlarge'  # Specify the desired instance type
+        $SecurityGroupId = 'sg-xxxxxxxxxxxxxx'  # Specify the desired security group ID
+        $Region = 'yourinstanceregion'  # Specify your AWS region
+        
+        # Get the volume ID for the instance
+        $VolumeId = aws ec2 describe-volumes --filters "Name=tag:Name,Values=$InstanceName" `
+            "Name=status,Values=available" "Name=volume-type,Values=sc1" `
+            --query "Volumes[0].VolumeId" --output text --region $Region
+        
+        if (-not $VolumeId -or $VolumeId -eq "None") {
+            Write-Error "Error: Unable to retrieve valid volume ID for the specified instance name."
+            exit 1
+        }
+        
+        # Create a snapshot of the volume
+        $SnapshotId = aws ec2 create-snapshot --volume-id $VolumeId --description "Snapshot for AMI" `
+            --query "SnapshotId" --output text --region $Region
+        
+        # Wait for the snapshot to be completed
+        Write-Host "Waiting for snapshot $SnapshotId to complete..."
+        do {
+            Start-Sleep -Seconds 10
+            $SnapshotStatus = aws ec2 describe-snapshots --snapshot-ids $SnapshotId --query "Snapshots[0].State" --output text --region $Region
+        } while ($SnapshotStatus -ne 'completed')
+        
+        # Register an AMI from the snapshot
+        $AMIId = aws ec2 register-image --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"SnapshotId":"'$SnapshotId'","VolumeType":"gp3","DeleteOnTermination":false}}]' `
+            --name "AMI for $InstanceName" --description "AMI created from cold HDD snapshot" `
+            --architecture x86_64 --root-device-name "/dev/sda1" --query "ImageId" --output text --region $Region
+        
+        Write-Host "AMI $AMIId registered from snapshot $SnapshotId"
+        
+        # Request a Spot instance with specified parameters
+        $RequestId = aws ec2 request-spot-instances --instance-count 1 --type "one-time" `
+            --launch-specification "{\"ImageId\":\"$AMIId\",\"InstanceType\":\"$TargetInstanceType\",\"SecurityGroupIds\":[\"$SecurityGroupId\"]}" `
+            --query "SpotInstanceRequests[0].SpotInstanceRequestId" --output text --region $Region
+        
+        Write-Host "Spot instance requested with ID: $RequestId"
+        
+        # Wait for the Spot instance request to be fulfilled
+        Write-Host "Waiting for Spot instance request $RequestId to be fulfilled..."
+        do {
+            Start-Sleep -Seconds 10
+            $SpotRequestStatus = aws ec2 describe-spot-instance-requests --spot-instance-request-ids $RequestId --query "SpotInstanceRequests[0].Status.Code" --output text --region $Region
+        } while ($SpotRequestStatus -ne 'fulfilled')
+        
+        # Get the Spot instance ID
+        $InstanceId = aws ec2 describe-spot-instance-requests --spot-instance-request-ids $RequestId --query "SpotInstanceRequests[0].InstanceId" --output text --region $Region
+        
+        if (-not $InstanceId -or $InstanceId -eq "None") {
+            Write-Error "Error: Unable to get spot instance ID, it may not have provisioned. Try again later."
+            Write-Host "Deleting AMI and snapshot..."
+            aws ec2 deregister-image --image-id $AMIId --region $Region
+            aws ec2 delete-snapshot --snapshot-id $SnapshotId --region $Region
+            exit 1
+        }
+        
+        Write-Host "Spot instance $InstanceId launched from AMI $AMIId with instance type $TargetInstanceType, gp3 volume, and security group $SecurityGroupId"
+        
+        # Tagging the launched instance with the specified name tag
+        aws ec2 create-tags --resources $InstanceId --tags Key=Name,Value=$InstanceName --region $Region
+        
+        # Get GP3 volume
+        $GP3VolumeId = aws ec2 describe-volumes --filters "Name=volume-type,Values=gp3" --query "Volumes[0].VolumeId" --output text --region $Region
+        
+        # Tagging the storage with the specified name tag
+        aws ec2 create-tags --resources $GP3VolumeId --tags Key=Name,Value=$InstanceName --region $Region
+        
+        Write-Host "Tags added to the launched instance and storage."
+        
+        Write-Host "Deleting cold HDD, AMI, and snapshot..."
+        aws ec2 deregister-image --image-id $AMIId --region $Region
+        aws ec2 delete-snapshot --snapshot-id $SnapshotId --region $Region
+        aws ec2 delete-volume --volume-id $VolumeId --region $Region
+        ```
+
+        Save as a `.ps1` file. To run it, open PowerShell, navigate to the directory where the file is saved, and run:
+
+        ```powershell
+        ./start-server.ps1
+        ```
+      </Tab>
+      <Tab title="macOS / Linux (.sh)">
+        ```bash
+        #!/bin/bash
+        
+        INSTANCE_NAME='yourinstancename'
+        TARGET_INSTANCE_TYPE='g4dn.xlarge' # You'll want to put the literal name like "g5.xlarge"
+        SECURITY_GROUP_ID='sg-xxxxxxxxxxxxxx'  # https://your-instance-region.console.aws.amazon.com/ec2/home?region=your-instance-region#SecurityGroups:
+        REGION='your-instance-region'  # Specify your AWS region
+        
+        # Get the volume ID for the instance
+        VOLUME_ID=$(aws ec2 describe-volumes --filters "Name=tag:Name,Values=$INSTANCE_NAME" \
+            "Name=status,Values=available" "Name=volume-type,Values=sc1" \
+            --query "Volumes[0].VolumeId" --output text --region $REGION)
+        
+        if [ -z "$VOLUME_ID" ] || [ "$VOLUME_ID" == "None" ]; then
+            echo "Error: Unable to retrieve valid volume ID for the specified instance name."
+            exit 1
+        fi
+        
+        # Create a snapshot of the volume
+        SNAPSHOT_ID=$(aws ec2 create-snapshot --volume-id $VOLUME_ID --description "Snapshot for AMI" \
+            --query "SnapshotId" --output text --region $REGION)
+        
+        # Wait for the snapshot to be completed
+        aws ec2 wait snapshot-completed --snapshot-ids $SNAPSHOT_ID --region $REGION
+        
+        # Register an AMI from the snapshot
+        AMI_ID=$(aws ec2 register-image  --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"SnapshotId":"'$SNAPSHOT_ID'","VolumeType":"gp3","DeleteOnTermination":false}}]' \
+            --name "AMI for $INSTANCE_NAME" --description "AMI created from cold HDD snapshot" \
+            --architecture x86_64 \
+            --root-device-name "/dev/sda1" --query "ImageId" --output text --region $REGION)
+        
+        echo "AMI $AMI_ID registered from snapshot $SNAPSHOT_ID"
+        
+        # Request a Spot instance with specified parameters
+        REQUEST_ID=$(aws ec2 request-spot-instances --instance-count 1 --type "one-time" \
+            --launch-specification "{\"ImageId\":\"$AMI_ID\",\"InstanceType\":\"$TARGET_INSTANCE_TYPE\",\"SecurityGroupIds\":[\"$SECURITY_GROUP_ID\"]}" \
+            --query "SpotInstanceRequests[0].SpotInstanceRequestId" --output text --region $REGION)
+        
+        echo "Spot instance requested with ID: $REQUEST_ID"
+        
+        # Wait for the Spot instance request to be fulfilled
+        aws ec2 wait spot-instance-request-fulfilled --spot-instance-request-ids $REQUEST_ID --region $REGION
+        
+        # Get the Spot instance ID
+        INSTANCE_ID=$(aws ec2 describe-spot-instance-requests --spot-instance-request-ids $REQUEST_ID \
+            --query "SpotInstanceRequests[0].InstanceId" --output text --region $REGION)
+        
+        if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" == "None" ]; then
+            echo "Error: Unable to get spot instance ID, it may not have provisioned. Try again later."
+            echo "Deleting AMI and snapshot..."
+            aws ec2 deregister-image --image-id $AMI_ID --region $REGION
+            aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region $REGION
+            exit 1
+        fi
+        
+        echo "Spot instance $INSTANCE_ID launched from AMI $AMI_ID with instance type $TARGET_INSTANCE_TYPE, gp3 volume, and security group $SECURITY_GROUP_ID"
+        
+        # Tagging the launched instance with the specified name tag
+        aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=$INSTANCE_NAME --region $REGION
+        
+        # Get GP3 volume
+        GP3VOLUME_ID=$(aws ec2 describe-volumes --filters "Name=volume-type,Values=gp3" --query "Volumes[0].VolumeId" --output text --region $REGION)
+        
+        # Tagging the storage with the specified name tag
+        aws ec2 create-tags --resources $GP3VOLUME_ID --tags Key=Name,Value=$INSTANCE_NAME --region $REGION
+        
+        echo "Tags added to the launched instance and storage."
+        
+        echo "Deleting cold HDD, AMI, and snapshot..."
+        aws ec2 deregister-image --image-id $AMI_ID --region $REGION
+        aws ec2 delete-snapshot --snapshot-id $SNAPSHOT_ID --region $REGION
+        aws ec2 delete-volume --volume-id $VOLUME_ID --region $REGION
+        ```
+
+        Save as a `.sh` file. To run it, open your terminal, navigate to the directory where the file is saved, and run:
+
+        ```bash
+        ./start-server.sh
+        ```
+      </Tab>
+    </Tabs>
+
+    Use a text editor like [Notepad\+\+](https://notepad-plus-plus.org/downloads/) (Windows) or TextEdit (macOS) to fill in the values at the top of the file before saving.
+
+    <Warning>
+      Monitor the AWS dashboard while this script runs. If something goes wrong mid-execution, you could incur unexpected charges or accidentally delete data. Check the dashboard periodically to make sure everything is proceeding as expected.
+    </Warning>
+  </Step>
+</Steps>
+
+## Enjoy your instance!
+
+You now have a cost-effective, GPU-accelerated workstation on AWS. You got the best pricing by using spot instances, automated driver setup with the CloudStreaming script, reduced storage costs with the SC1/GP3 Lambda conversion, simplified instance startup with the automation script, and stable connectivity via Tailscale or Dynamic DNS — all without paying for a static IP address.

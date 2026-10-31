@@ -1,0 +1,61 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "CloudStreaming",
+  "projectDescription": "An open-source PowerShell script that automates the setup of a GPU-powered Windows cloud workstation on AWS or Azure for gaming and creative work.",
+  "theme": "palm",
+  "primaryColor": "#3B82F6",
+  "lightColor": "#EFF6FF",
+  "darkColor": "#1E40AF",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "getting-started/overview",
+              "getting-started/streaming-technology"
+            ]
+          },
+          {
+            "group": "Cloud Setup",
+            "pages": [
+              "cloud/aws",
+              "cloud/azure"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/nvme-drive-aws"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automated GPU driver installation and configuration",
+    "Streaming technology selection (Sunshine, Parsec, Amazon DCV)",
+    "Windows Server configuration for cloud workstation use",
+    "Tailscale VPN integration for secure remote access",
+    "AWS cost optimization via Lambda + cold storage automation",
+    "Virtual display driver (VDD) setup for Sunshine/Parsec",
+    "Microsoft Store installation on Windows Server",
+    "One-command setup via PowerShell"
+  ],
+  "publicApiSurface": [
+    "iex PowerShell one-liner (starthere.ps1 entrypoint)",
+    "starthere.ps1 — main setup script",
+    "ConvertGP3toHDD Lambda function",
+    "start-server.sh / start-server.ps1 — instance automation scripts"
+  ]
+}

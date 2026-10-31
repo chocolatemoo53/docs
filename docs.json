@@ -1,0 +1,73 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "CloudStreaming",
+  "theme": "almond",
+  "favicon": "https://icons.duckduckgo.com/ip3/csdocs.chocolatemoo53.com.ico",
+  "colors": {
+    "primary": "#3B82F6",
+    "light": "#EFF6FF",
+    "dark": "#1E40AF"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/chocolatemoo53/cloudstreaming"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "getting-started/overview",
+              "getting-started/streaming-technology"
+            ]
+          },
+          {
+            "group": "Cloud Setup",
+            "pages": [
+              "cloud/aws",
+              "cloud/azure"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": []
+          },
+          {
+            "group": "Reference",
+            "pages": []
+          }
+        ]
+      }
+    ]
+  },
+  "fonts": {
+    "family": "Gabarito",
+    "heading": {
+      "family": "Instrument Serif",
+      "weight": 900
+    }
+  },
+  "icons": {
+    "library": "tabler"
+  },
+  "thumbnails": {
+    "fonts": {
+      "family": "Gabarito"
+    }
+  },
+  "footer": {
+    "socials": {
+      "bluesky": "https://bsky.app/profile/chocolatemooo53.com",
+      "github": "https://github.com/chocolatemoo53"
+    }
+  },
+  "background": {
+    "decoration": "gradient"
+  }
+}

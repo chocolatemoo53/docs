@@ -1,0 +1,41 @@
+---
+title: "Streaming Technology"
+description: "Compare Amazon DCV, Sunshine, and Parsec to choose the right streaming solution for your cloud workstation."
+icon: "cloud-computing"
+---
+
+"Streaming technology" refers to the application you use to stream your cloud workstation to your personal computer or device. CloudStreaming supports three options: Amazon DCV, Sunshine, and Parsec. Each has different device support, pricing, and trade-offs.
+
+<Tip>
+  Review this page before you start the setup process. Choosing your streaming technology is the very first decision the script asks you to make.
+</Tip>
+
+## Comparison
+
+| Feature | Amazon DCV | Sunshine | Parsec |
+| --- | --- | --- | --- |
+| **Supported devices** | Desktop (Windows, macOS ARM/x86\_64, Linux) | Desktop (Windows ARM/x86\_64, macOS ARM/x86\_64, Linux ARM/x86\_64), gaming consoles, Raspberry Pi, Android, iOS, streaming boxes, Steam Link, FireOS tablets | Desktop (Windows, Mac, Debian), Android |
+| **Supported clouds** | AWS (free); paid on others | Any | Any |
+| **Supported resolution** | 4K, multiple monitors | 4K, multiple monitors | 4K; multiple monitors requires paid plan |
+| **Controller support** | Supported with Windows client | May need a patch | Supported |
+| **Price** | Free with AWS; paid on others | Free and open source | Free with paid options |
+| **Support** | Community | Community | Paid users only |
+| **Documentation** | Provided (more admin-focused) | Provided | Support site with info |
+
+## Technology details
+
+<AccordionGroup>
+  <Accordion title="Amazon DCV">
+    Amazon DCV is free when used with AWS and is tightly integrated with the platform. It supports 4K and multiple monitors, includes high-quality surround audio drivers (so VB-CABLE is not required), and handles much of the display configuration automatically. Controller support requires the Windows client. DCV's documentation tends to be admin-oriented, and community support is available. If you are running on a cloud provider other than AWS, DCV requires a paid license.
+  </Accordion>
+
+  <Accordion title="Sunshine">
+    Sunshine is a free, open-source self-hosted streaming server compatible with Moonlight clients. It has the broadest device support of the three options, covering desktops, mobile devices, gaming consoles, Raspberry Pi, streaming boxes, Steam Link, and more. It works on any cloud provider. Controller support may require a patch. Sunshine's flexibility makes it a strong choice if you need to stream to a wide variety of client devices.
+  </Accordion>
+
+  <Accordion title="Parsec">
+    Parsec is a well-known remote desktop and game streaming application that works on any cloud provider. It supports Windows, Mac, Debian, and Android clients. Multiple monitor support requires a paid plan, and dedicated support is only available to paid users. Its free tier is functional for most personal use cases, and controller support works out of the box.
+  </Accordion>
+</AccordionGroup>
+
+The choice of streaming technology is the very first step in the setup process. Once you have decided, proceed to the [Overview](/getting-started/overview) to see what the script does at each subsequent step.

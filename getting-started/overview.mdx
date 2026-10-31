@@ -1,0 +1,89 @@
+---
+title: "Overview"
+description: "How CloudStreaming works and what happens at each step of the setup process."
+icon: "question-mark"
+---
+
+CloudStreaming is an open-source PowerShell script that sets up a GPU-powered Windows cloud workstation on AWS or Azure. It automates driver installation, display configuration, audio setup, and common application installation so you can get a fully functional cloud PC running with minimal manual effort.
+
+<Note>
+  This script was forked from acceleration3's "cloudgamestream" — the most thanks goes to the original creator. It is maintained by an individual and any potential contributors, and is provided as-is with no guarantee of updates or stability. The project is licensed under the MIT license.
+</Note>
+
+## Why a cloud computer?
+
+Cloud workstations give you access to a full Windows environment for tasks like video editing, 3D modeling, and gaming on the go. Cloud providers like AWS make it straightforward and affordable to get GPU-powered instances, making them an excellent solution for creative projects or when you need more computing power than your local machine provides.
+
+Unlike traditional cloud gaming services, which limit your library, a cloud provider gives you the freedom to run any game or software on a full GPU-powered setup. Before you begin, it's worth researching whether a managed service might better suit your needs.
+
+### Shadow and Paperspace
+
+Direct cloud PC providers offer a more streamlined, plug-and-play experience compared to building your own setup on AWS or Azure. They provide a complete desktop environment with a pre-installed operating system.
+
+- **Shadow:** At around \$30 USD/month, Shadow provides a fixed configuration featuring a GPU equivalent to a GTX 4060 (as they claim), eight vCores, 16 GB of RAM, and a 512 GB SSD. The predictable monthly cost, unlimited usage, included Windows consumer license, 512 GB storage, and 1 Gbps connection are all notable advantages.
+- **Paperspace:** While solid, Paperspace's primary drawback is cost. Storage is significantly more expensive (2 terabytes of storage runs at \$120/month). GPU pricing per hour can also be higher than comparable AWS instances, and you're charged for a static IP even when your machine is off. More critically, Paperspace no longer offers Windows access to any new customers, making it a non-viable alternative for most users. Its available regions are also limited compared to other providers, and after being acquired by DigitalOcean, the service has degraded and stagnated.
+
+### Cloud Gaming Services
+
+If your primary goal is gaming, and you don't need a full desktop, dedicated cloud gaming services are the easiest option. They handle all hardware and maintenance but cannot give you a desktop for working, school or any other purposes.
+
+- **GeForce Now:** Starting at \$9.99/month (with a free tier that includes wait times), GeForce Now offers a seamless gaming experience. Its main limitations are a restricted game library and compatibility issues with certain game platforms and mods. However, they often have more regions than AWS, offer direct support, etc. 
+- **Xbox Cloud Gaming:** Included with a \$9.99/month Game Pass subscription, this service offers a cloud-based Xbox experience. The library is limited to Game Pass titles and video quality is often low. This is only if you are also willing to accept a time limit similar to GeForce Now. For the lowest plan, as stated here, you'll have 30 hours or less, and often times, that's as much as this entire setup. 
+- **Amazon Luna:** At \$9.99/month, Luna offers a smooth experience with a limited and somewhat dated game library. Streaming is capped at 1080p. It integrates with Amazon Prime to let you play some titles from partners like Ubisoft without paying extra, and compatible GOG library games also work.
+
+These services trade control for convenience. If their game libraries meet your needs, they are an excellent hassle-free option. For work like video editing or 3D modeling, you need a dedicated cloud PC that provides a full Windows desktop environment.
+
+Some apps you can run on AWS, Azure and others which these services do not allow:
+
+- Autodesk software (Maya, AutoCAD, Civil 3D)
+- Game engines (Unreal, Unity)
+- Adobe Creative Cloud (Premiere, Audition, Illustrator, Photoshop)
+- Sony published games (Spider-Man, Horizon)
+- Your entire library on Steam (I think you get it)
+
+### Advantages of using this script
+
+For those willing to put in a little more effort, building your own setup delivers more power, flexibility, and cost-effectiveness than any managed service.
+
+- **Cost and flexibility:** The G4dn.2xlarge instance on AWS is a strong option, priced at around \$0.4436/hour as a spot instance in the Oregon region. You only pay for what you use, avoiding fixed monthly fees.
+- **Superior hardware:** AWS instances offer NVIDIA GPUs ranging from the 20-series up to the 40-series, unlocking features like DLSS and Ray Tracing that are unavailable on Shadow's boost tier. You also get 32 GB of RAM — double what Shadow offers — and fully customizable storage that can be upgraded without a separate drive.
+- **Operating system:** AWS provides a fully licensed and updated version of Windows Server, a significant advantage over services that no longer offer Windows to new customers.
+- **Better regional support:** AWS and Azure offer dozens of available regions, more than any managed cloud gaming service. This means lower latency and better data control regardless of where you are located.
+
+## Setup steps
+
+<Steps>
+  <Step title="Choose your streaming technology">
+    The script starts by asking you to pick a streaming technology — the application you will use to stream your cloud workstation to your personal device. Review the options before you begin so you can make an informed choice.
+
+    [Compare streaming technologies](/getting-started/streaming-technology)
+  </Step>
+  <Step title="Apply Windows Server tweaks">
+    Windows Server is close to Windows 10/11 but not identical, so several adjustments are required:
+
+    - **Shutdown reason dialog:** Disabled.
+    - **Xbox Controller support:** Not included by default.
+    - **Audio service:** Should be on, but has been a common pain point in the past.
+    - **Automatic login:** Enabled so that Sunshine or Parsec are accessible immediately when the server starts, without requiring a manual login first.
+    - **Timezone:** Set to your preferred timezone.
+    - **Wallpaper:** Applied to replace the default system-info desktop and ensure display settings behave correctly across resolution changes.
+    - **Various driver-required installations:** Some features like QWAVE are needed.
+  </Step>
+  <Step title="Install video and audio drivers">
+    With AWS and GCP, you can choose to use outdated images with outdated drivers, or download themselves using the official methods. The script will handle that for you, or send you to the correct scripts needed to complete setup. 
+
+    - **Video drivers:** The GPUDownloaderTool installs drivers silently, overclock your GPU to AWS-recommended frequencies, and handles licensing without any manual interaction. You will need to generate root keys for this tool. On Google Cloud, the script uses Google's official installer instead.
+    - **Audio drivers:** The script installs VB-CABLE Virtual Audio Device (donationware). Amazon DCV users skip this step, as DCV includes its own high-quality surround audio drivers. Razer Surround is also a compatible alternative if you prefer virtual surround sound.
+
+    After this step you will be prompted to disconnect from RDP. The next step disables the display adapters that RDP relies on. At this point your streaming technology is already configured, so you connect through that instead.
+  </Step>
+  <Step title="Force and clean-up displays">
+    This step removes all other display adapters and sets the primary one to the VDD driver for Sunshine, or the Parsec VDD. You must already be connected via your chosen streaming technology before this step runs.
+
+    The script automatically continues once you have logged back in through your streaming client. This ensures the new display setup is the only active one, preventing conflicts with display settings. If you use a common resolution and refresh rate (such as 1080p60 or 1440p60) you are unlikely to encounter issues, though more complex configurations may require manual adjustment.
+
+    Amazon DCV handles much of this automatically and is largely unaffected by this step.
+
+    If you experience problems, you may need to restart and manually configure.
+  </Step>
+</Steps>

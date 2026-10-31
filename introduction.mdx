@@ -1,0 +1,49 @@
+---
+title: "Introduction"
+description: "Automated setup for a GPU-powered Windows cloud workstation for gaming and creative work."
+icon: "hand-finger-down"
+---
+
+The repository is in archive mode, this documentation will be going away soon. As existing providers improve, most people would benefit from a Shadow PC, GeForce Now, or something similar, if you still need something. AWS nor any other provider has made it easier to make remote desktops and are usually at capacity. An active project that can help you make instances is [CloudyPad](https://github.com/PierreBeucher/cloudypad). Plans to make an app for cloudstreaming have been discontinued. 
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="rocket" href="/getting-started/overview">
+    Learn how the setup process works and what to expect at each step.
+  </Card>
+
+  <Card title="Streaming Technology" icon="cloud-computing" href="/getting-started/streaming-technology">
+    Choose between Sunshine, Parsec, or Amazon DCV before you begin.
+  </Card>
+
+  <Card title="AWS Setup" icon="brand-aws" href="/cloud/aws">
+    Step-by-step guide to launching a GPU instance on Amazon Web Services.
+  </Card>
+
+  <Card title="Azure Setup" icon="brand-azure" href="/cloud/azure">
+    Step-by-step guide to launching a GPU instance on Microsoft Azure.
+  </Card>
+</CardGroup>
+
+## Why CloudStreaming?
+
+<Steps>
+  <Step title="Pick your cloud provider">
+    Bring your own AWS, Azure or GCP account. You only pay for the time your instance is running, and you get a full Windows desktop environment for work, study or gaming. 
+  </Step>
+  <Step title="Run one command">
+    Paste a single PowerShell command into your new server and the script walks you through the rest interactively.
+  </Step>
+  <Step title="Connect and play">
+    Stream your desktop to any device using Sunshine (Moonlight), Parsec, or Amazon DCV with low latency from dozens of global regions.
+  </Step>
+</Steps>
+
+## Key features
+
+- **One-command setup:** A single PowerShell line downloads and starts the script
+- **GPU driver automation**: Negate complicated AWS instructions with automatic GPU driver installation for your server, with the ability to update.
+- **Streaming technology choice**: Support automatic installation of Sunshine, Parsec, and Amazon DCV, with more coming soon.
+- **Tailscale installation:** Connect without paying for a public IP.
+- **Cost optimization**: AWS Lambda automation converts idle storage to cold HDD to cut costs.
+- **Windows Server tweaks**: For a comfortable experience, some tweaks are made. 
+- **Microsoft Store**: Optionally installed for Game Pass, Dolby Access, and more.
